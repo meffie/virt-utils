@@ -1,0 +1,190 @@
+#!/bin/bash
+#
+# Spin-up a temporary vm from an existing domain (which is shutdown), run a
+# series of commands, then delete the temporary vm.  Useful for doing builds
+# and tests.
+#
+# Before running, create a domain to be used as the base image. Create a
+# regular user account to be used to run commands and install a public key in
+# the user's authorized_keys.  The virt-builder tool can be used to
+# automate the construction of the base image.
+#
+#---------------------------------------------------------------------------
+
+
+export LIBVIRT_DEFAULT_URI="qemu:///system"
+
+vmbase=""
+vmname=""
+vmaddr=""
+vmstate=""
+vmdomstate=""
+
+opt_nodelete=no
+
+ssh_exit_code=1
+ssh_user="$USER"
+ssh_opts="
+-t -t
+-o BatchMode=yes
+-o UserKnownHostsFile=/dev/null
+-o StrictHostKeyChecking=no
+-o LogLevel=ERROR
+"
+
+usage() {
+    echo "usage: virt-run --base=<domain> [--user=<user>] [--connect=uri] [--nodelete] <command> [<command>...]"
+}
+
+warn() {
+    echo "WARNING: $1" >&2
+}
+
+die() {
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+#
+# Send a command to the guest via ssh.
+#
+send_cmd() {
+    local cmd="$1"
+    local opts="$ssh_opts"
+    if [ ! -z "$ssh_user" ]; then
+        opts="$opts -l $ssh_user"
+    fi
+    if [ -z "$cmd" ]; then
+        warn "Command is missing."
+        return
+    fi
+    if [ -z "$vmaddr" ]; then
+        die "IP address for '$vmname' is not set."
+    fi
+    ssh $opts $vmaddr $cmd
+    ssh_exit_code=$?
+}
+
+wait_until_booted() {
+    sleep 1
+    for i in {1..20}; do
+        vmdomstate=`virsh domstate $vmname`
+        if [ "$vmdomstate" = "running" ]; then
+            break
+        fi
+        sleep 6
+    done
+    if [ "$vmdomstate" != "running" ]; then
+        die "Domain '$vmname' failed to start."
+    fi
+    for i in {1..20}; do
+        vmaddr=`virt-addr $vmname`
+        if [ ! -z $vmaddr ]; then
+            break
+        fi
+        sleep 6
+    done
+    if [ -z $vmaddr ]; then
+        die "Failed to find ip address of vm '$vmname'."
+    fi
+    echo "Attempting to connect to '$vmaddr'."
+    for i in {1..20}; do
+        send_cmd "systemctl is-system-running | grep '^running$'"
+        if [ $ssh_exit_code -eq 0 ]; then
+            vmstate="running"
+            break
+        fi
+        sleep 6
+    done
+    if [ "$vmstate" != "running" ]; then
+        die "Failed to reach running state in vm '$vmname'."
+    fi
+    echo "Guest '$vmname' is running."
+}
+
+reap_orphans() {
+    local vm=
+    local pid=
+    for vm in `virsh list --name`; do
+        if ! echo $vm | grep -q -P "^$vmbase-\d+$"; then
+            continue
+        fi
+        pid=`echo $vm | sed "s/^$vmbase-//"`
+        if [ -d /proc/$pid ]; then
+            continue
+        fi
+        if cat /proc/$pid/cmdline | grep -q -P "\bvirt-run\b"; then
+            continue
+        fi
+        echo "Deleting orphan domains '$vm'."
+        virt-delete $vm
+    done
+}
+
+args=`getopt --option b:c:u: --long base:,connect:,user:,nodelete --name 'virt-run' -- "$@"`
+if [ $? != 0 ]; then
+    usage
+    exit 1
+fi
+eval set -- "$args"
+while :; do
+    case "$1" in
+        -b|--base) vmbase="$2" ; shift 2 ;;
+        -c|--connect) export LIBVIRT_DEFAULT_URI="$2" ; shift 2 ;;
+        --nodelete) opt_nodelete=yes ; shift ;;
+        -u|--user) ssh_user="$2" ; shift 2 ;;
+        --) shift ; break ;;
+        *) die "Internal error handling options." ;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    usage
+    exit 1
+fi
+if [ -z "$vmbase" ]; then
+    usage
+    exit 1
+fi
+
+echo "Checking for orphan domains."
+reap_orphans
+
+vmname="$vmbase-$$"
+echo "Cloning '$vmbase' to '$vmname'."
+virt-clone --auto-clone --original $vmbase --name $vmname ||
+    die "Failed to clone '$vmbase' to '$vmname'."
+virsh start $vmname ||
+    die "Failed to start '$vmname'."
+
+echo "Waiting for the guest vm '$vmname' to boot."
+wait_until_booted
+
+echo "Running commands."
+for cmd; do
+    echo "--> '$cmd'"
+    case "$cmd" in
+    @reboot)
+        virsh reboot $vmname
+        wait_until_booted
+        ;;
+    @*)
+        warn "Unknown command: $cmd"
+        ;;
+    *)
+        send_cmd "$cmd"
+        if [ $ssh_exit_code -ne 0 ] ; then
+            warn "Command failed with code $ssh_exit_code: '$cmd'."
+            break
+        fi
+        ;;
+    esac
+done
+
+if [ "$opt_nodelete" = "yes" ]; then
+    warn "Skipping delete"
+else
+    echo "Deleting domain '$vmname'."
+    virt-delete $vmname
+fi
+exit $ssh_exit_code # propagate the command error
+
