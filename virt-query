@@ -35,7 +35,7 @@ class Domain (object):
 
     def disks(self):
         for disk in self.domxml.xpath('/domain/devices/disk'):
-            if disk.get('type') == 'file':
+            if disk.get('type') == 'file' and disk.get('device') == 'disk':
                 info = {'type': 'file',
                         'target': disk.find('target').get('dev')}
 
