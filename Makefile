@@ -2,6 +2,7 @@ prefix=/usr/local
 bindir=$(prefix)/bin
 
 SCRIPTS = \
+	virsh-rename \
 	virt-query \
 	virt-addr \
 	virt-delete \

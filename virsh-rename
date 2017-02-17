@@ -1,0 +1,36 @@
+#!/bin/sh
+#
+# Rename a domain.
+# Note: The domain must be shutdown.
+#
+
+die() {
+    echo $1 >&2
+    exit 1
+}
+
+oldname=$1
+newname=$2
+if [ "x$oldname" = "x" -o "x$newname" = "x" ]; then
+    die "usage: virsh-rename <oldname> <newname>"
+fi
+
+if virsh list --all --name | grep -q "^$oldname$"; then
+    :
+else
+    die "$oldname not found."
+fi
+if virsh list --all --name | grep -q "^$newname$"; then
+    die "$newname already exists."
+fi
+if virsh list --all --state-shutoff --name | grep -q "^$oldname$"; then
+    :
+else
+    die "$oldname is not shutoff."
+fi
+
+xml=`tempfile --prefix=virsh --suffix=.xml` || die "failed to create tmp file"
+virsh dumpxml $oldname | sed "s@<name>$oldname</name>@<name>$newname</name>@" > $xml
+virsh undefine $oldname || die "failed to undefine $oldname"
+virsh define $xml || die "failed to define $newname"
+rm $xml
