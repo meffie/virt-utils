@@ -18,6 +18,7 @@ def parse_args():
     p.add_argument('--short', '-s', action='store_true')
     p.add_argument('--reload-dnsmasq', '-r', action='store_true')
     p.add_argument('--update', '-u', action='store_true')
+    p.add_argument('--brief', '-b', action='store_true')
     return p.parse_args()
 
 def read_leases_file(path):
@@ -65,14 +66,17 @@ def main():
 
                 if macaddr in leases:
                     ipaddr = leases[macaddr]['ipaddr']
-                    fd.write('%s\t%s' % (
-                        ipaddr,
-                        '%s-%s.%s' % (dom.name(), alias, args.domain)))
+                    if args.brief:
+                        fd.write('%s\t%s' % (ipaddr, (dom.name())))
+                    else:
+                        fd.write('%s\t%s' % (
+                            ipaddr,
+                            '%s-%s.%s' % (dom.name(), alias, args.domain)))
 
-                    if primary:
-                        fd.write(' %s.%s' % (dom.name(), args.domain))
-                        if args.short:
-                            fd.write(' %s' % (dom.name()))
+                        if primary:
+                            fd.write(' %s.%s' % (dom.name(), args.domain))
+                            if args.short:
+                                fd.write(' %s' % (dom.name()))
                     fd.write('\n')
                     primary=False
 
