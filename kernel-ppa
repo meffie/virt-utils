@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# Download mainline kernel ppa packages published by the Ubuntu kernel team.
+#
+# usage: kernel-ppa list
+#        kernel-ppa get [<version>]
+#        kernel-ppa install
+#
+#
+
+BASEURL="http://kernel.ubuntu.com/~kernel-ppa/mainline"
+
+usage() {
+    echo "usage: kernel-ppa list"
+    echo "       kernel-ppa get [<version>]"
+    echo "       kernel-ppa install"
+}
+
+list_versions() {
+    wget -q -O - "$BASEURL/?C=N;O=D" |
+        perl -lane 'print $1 if /href="([^"]+)"/' |
+        sed 's@/$@@'
+}
+
+get_packages() {
+    version="$1"
+    arch=`uname -m | sed s/x86_64/amd64/`
+
+    if [ "x$version" = "x" ]; then
+        version=`list_versions | head -1`
+    fi
+
+    wget \
+    --no-verbose \
+    --recursive \
+    --execute robots=off \
+    --no-parent \
+    --no-directories \
+    --no-clobber \
+    --accept "*_all.deb,*_${arch}.deb" \
+    --reject "*lowlatency*.deb" \
+    "${BASEURL}/${version}/"
+}
+
+install_packages() {
+    sudo -n DEBIAN_FRONTEND=noninteractive dpkg --install linux-*.deb
+}
+
+case "$1" in
+help)    usage ;;
+list)    list_versions ;;
+get)     get_packages "$2" ;;
+install) install_packages ;;
+*)
+    usage
+    exit 1
+    ;;
+esac
