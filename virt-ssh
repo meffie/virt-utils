@@ -1,0 +1,21 @@
+#!/bin/sh
+
+ssh_opts="
+-o UserKnownHostsFile=/dev/null
+-o StrictHostKeyChecking=no
+-o LogLevel=ERROR
+"
+
+vmname=$1
+if [ -z $vmname ]; then
+    echo "usage: virt-ssh <domain>" 2>&2
+    exit 1
+fi
+
+vmaddr=`virt-addr $vmname`
+if [ -z $vmaddr ]; then
+    echo "Failed to get address of '$vmname'."
+    exit 1
+fi
+
+exec ssh $ssh_opts $vmaddr
