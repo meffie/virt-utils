@@ -1,14 +1,23 @@
-#!/bin/sh
+#!/bin/bash
 
+ssh_user=$USER
 ssh_opts="
 -o UserKnownHostsFile=/dev/null
 -o StrictHostKeyChecking=no
 -o LogLevel=ERROR
 "
 
-vmname=$1
+ARGS=$(getopt -o -l: -n virt-ssh -- "$@")
+eval set -- "$ARGS"
+while :; do
+    case "$1" in
+    -l) ssh_user=$2; shift 2 ;;
+    --) shift; break ;;
+    *)  vmname=$1; shift; break
+    esac
+done
 if [ -z $vmname ]; then
-    echo "usage: virt-ssh <domain>" 2>&2
+    echo "usage: virt-ssh [-l <user>] <domain>" >&2
     exit 1
 fi
 
@@ -18,4 +27,4 @@ if [ -z $vmaddr ]; then
     exit 1
 fi
 
-exec ssh $ssh_opts $vmaddr
+exec ssh $ssh_opts -l $ssh_user $vmaddr
