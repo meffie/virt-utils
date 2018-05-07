@@ -18,7 +18,7 @@ usage() {
 
 list_versions() {
     wget -q -O - "$BASEURL/?C=N;O=D" |
-        perl -lane 'print $1 if /href="([^"]+)"/' |
+        perl -lane 'print $1 if /href="(v[^"]+)"/' |
         sed 's@/$@@'
 }
 
