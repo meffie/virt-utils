@@ -12,28 +12,37 @@
 #---------------------------------------------------------------------------
 
 
-export LIBVIRT_DEFAULT_URI="qemu:///system"
+export LIBVIRT_DEFAULT_URI="${LIBVIRT_DEFUALT_URI:-qemu:///system}"
 
 vmbase=""
+vmbaseprefix=""
+vmcloneprefix=""
 vmname=""
 vmaddr=""
 vmstate=""
 vmdomstate=""
+vmcwd=""
 
 opt_nodelete=no
+opt_wait=10
 
 ssh_exit_code=1
 ssh_user="$USER"
-ssh_opts="
--t -t
--o BatchMode=yes
--o UserKnownHostsFile=/dev/null
--o StrictHostKeyChecking=no
--o LogLevel=ERROR
-"
+ssh_opts=""\
+" -t -t"\
+" -o BatchMode=yes"\
+" -o UserKnownHostsFile=/dev/null"\
+" -o StrictHostKeyChecking=no"\
+" -o LogLevel=ERROR"
 
 usage() {
-    echo "usage: virt-run --base=<domain> [--user=<user>] [--connect=uri] [--nodelete] <command> [<command>...]"
+    echo "usage: virt-run --base=<domain> [--base-prefix <base>] " \
+         "[--clone-prefix <prefix>] [--user=<user>] [--connect=uri] " \
+         "[--nodelete] <command> [<command> ...]"
+}
+
+info() {
+    echo "INFO: $1" #>&2
 }
 
 warn() {
@@ -61,18 +70,21 @@ send_cmd() {
     if [ -z "$vmaddr" ]; then
         die "IP address for '$vmname' is not set."
     fi
+    if [ ! -z "$vmcwd" ]; then
+        cmd="cd $vmcwd && $cmd"
+    fi
     ssh $opts $vmaddr $cmd
     ssh_exit_code=$?
 }
 
 wait_until_booted() {
-    sleep 1
+    sleep $opt_wait
     for i in {1..20}; do
         vmdomstate=`virsh domstate $vmname`
         if [ "$vmdomstate" = "running" ]; then
             break
         fi
-        sleep 6
+        sleep $opt_wait
     done
     if [ "$vmdomstate" != "running" ]; then
         die "Domain '$vmname' failed to start."
@@ -82,46 +94,46 @@ wait_until_booted() {
         if [ ! -z $vmaddr ]; then
             break
         fi
-        sleep 6
+        sleep $opt_wait
     done
     if [ -z $vmaddr ]; then
         die "Failed to find ip address of vm '$vmname'."
     fi
-    echo "Attempting to connect to '$vmaddr'."
+    info "Attempting to connect to '$vmaddr'."
     for i in {1..20}; do
         send_cmd "systemctl is-system-running | grep '^running$'"
         if [ $ssh_exit_code -eq 0 ]; then
             vmstate="running"
             break
         fi
-        sleep 6
+        sleep $opt_wait
     done
     if [ "$vmstate" != "running" ]; then
         die "Failed to reach running state in vm '$vmname'."
     fi
-    echo "Guest '$vmname' is running."
+    info "Guest '$vmname' is running."
 }
 
 reap_orphans() {
     local vm=
     local pid=
     for vm in `virsh list --name`; do
-        if ! echo $vm | grep -q -P "^$vmbase-\d+$"; then
+        if ! echo $vm | grep -q -P "^${vmcloneprefix}${vmbase}-\d+$"; then
             continue
         fi
-        pid=`echo $vm | sed "s/^$vmbase-//"`
+        pid=`echo $vm | sed "s/^${vmcloneprefix}${vmbase}-//"`
         if [ -d /proc/$pid ]; then
             continue
         fi
         if cat /proc/$pid/cmdline | grep -q -P "\bvirt-run\b"; then
             continue
         fi
-        echo "Deleting orphan domains '$vm'."
+        info "Deleting orphan domains '$vm'."
         virt-delete $vm
     done
 }
 
-args=`getopt --option b:c:u: --long base:,connect:,user:,nodelete --name 'virt-run' -- "$@"`
+args=`getopt --option b:c:u: --long base:,base-prefix:,clone-prefix:,connect:,user:,nodelete,wait: --name 'virt-run' -- "$@"`
 if [ $? != 0 ]; then
     usage
     exit 1
@@ -130,9 +142,12 @@ eval set -- "$args"
 while :; do
     case "$1" in
         -b|--base) vmbase="$2" ; shift 2 ;;
+        --base-prefix) vmbaseprefix="$2" ; shift 2 ;;
+        --clone-prefix) vmcloneprefix="$2" ; shift 2 ;;
         -c|--connect) export LIBVIRT_DEFAULT_URI="$2" ; shift 2 ;;
         --nodelete) opt_nodelete=yes ; shift ;;
         -u|--user) ssh_user="$2" ; shift 2 ;;
+        --wait) opt_wait="$2"; shift 2 ;;
         --) shift ; break ;;
         *) die "Internal error handling options." ;;
     esac
@@ -146,26 +161,42 @@ if [ -z "$vmbase" ]; then
     exit 1
 fi
 
-echo "Checking for orphan domains."
+info "Checking for orphan domains."
 reap_orphans
 
-vmname="$vmbase-$$"
-echo "Cloning '$vmbase' to '$vmname'."
-virt-clone --auto-clone --original $vmbase --name $vmname ||
-    die "Failed to clone '$vmbase' to '$vmname'."
-virsh start $vmname ||
-    die "Failed to start '$vmname'."
+vmname="${vmcloneprefix}${vmbase}-$$"
+info "Cloning '${vmbaseprefix}${vmbase}' to '$vmname'."
+virt-clone --auto-clone --original ${vmbaseprefix}${vmbase} --name ${vmname} ||
+    die "Failed to clone '${vmbaseprefix}${vmbase}' to '${vmname}'."
+virsh start ${vmname} ||
+    die "Failed to start '${vmname}'."
 
-echo "Waiting for the guest vm '$vmname' to boot."
+info "Waiting for the guest vm '${vmname}' to boot."
 wait_until_booted
 
-echo "Running commands."
-for cmd; do
-    echo "--> '$cmd'"
+info "Running commands."
+while :; do
+    cmd=$1
+    if [ -z "$cmd" ]; then
+        break
+    fi
+    info "--> '$cmd'"
     case "$cmd" in
+    @cd*)
+        vmcwd=`echo "$cmd" | sed 's/@cd //'`
+        info "Setting working directory to $vmcwd"
+        ;;
     @reboot)
-        virsh reboot $vmname
+        virsh reboot ${vmname}
         wait_until_booted
+        ;;
+    @say*)
+        info `echo "$cmd" | sed 's/@say //'`
+        ;;
+    @sleep*)
+        delay=`echo "$cmd" | sed 's/@sleep //'`
+        info "Sleeping for $delay seconds"
+        sleep "$delay"
         ;;
     @*)
         warn "Unknown command: $cmd"
@@ -178,12 +209,13 @@ for cmd; do
         fi
         ;;
     esac
+    shift
 done
 
 if [ "$opt_nodelete" = "yes" ]; then
     warn "Skipping delete"
 else
-    echo "Deleting domain '$vmname'."
+    info "Deleting domain '$vmname'."
     virt-delete $vmname
 fi
 exit $ssh_exit_code # propagate the command error
