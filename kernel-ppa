@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Download mainline kernel ppa packages published by the Ubuntu kernel team.
 #
@@ -13,7 +13,7 @@ BASEURL="http://kernel.ubuntu.com/~kernel-ppa/mainline"
 usage() {
     echo "usage: kernel-ppa list"
     echo "       kernel-ppa get [<version>]"
-    echo "       kernel-ppa install"
+    echo "       sudo kernel-ppa install"
 }
 
 list_versions() {
@@ -43,7 +43,13 @@ get_packages() {
 }
 
 install_packages() {
-    sudo -n DEBIAN_FRONTEND=noninteractive dpkg --install linux-*.deb
+    files=$(echo linux-*.deb)
+    if [ "$files" = "linux-*.deb" ]; then
+        echo "Run 'kernel-ppa get' first."
+    else
+	echo "Installing $files"
+        DEBIAN_FRONTEND=noninteractive dpkg --install $files
+    fi
 }
 
 case "$1" in
