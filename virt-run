@@ -36,9 +36,15 @@ ssh_opts=""\
 " -o LogLevel=ERROR"
 
 usage() {
-    echo "usage: virt-run --base=<domain> [--base-prefix <base>] " \
-         "[--clone-prefix <prefix>] [--user=<user>] [--connect=uri] " \
-         "[--nodelete] <command> [<command> ...]"
+    cat <<_EOF_
+usage: virt-run --base=<domain>
+                [--base-prefix <prefix>]
+                [--clone-prefix <prefix>]
+                [--user=<user>]
+                [--connect=<uri>]
+                [--nodelete]
+                "<command>" ["<command>" ...]
+_EOF_
 }
 
 info() {
@@ -175,25 +181,29 @@ info "Waiting for the guest vm '${vmname}' to boot."
 wait_until_booted
 
 info "Running commands."
-while :; do
-    cmd=$1
-    if [ -z "$cmd" ]; then
-        break
-    fi
+exit_code=0
+for cmd in "$@"; do
     info "--> '$cmd'"
     case "$cmd" in
+    @onfail*)
+        # Skip post processing commands.
+        ;;
     @cd*)
+        # Change directory to use for subsequent commands.
         vmcwd=`echo "$cmd" | sed 's/@cd //'`
         info "Setting working directory to $vmcwd"
         ;;
     @reboot)
+        # Reboot the guest.
         virsh reboot ${vmname}
         wait_until_booted
         ;;
     @say*)
+        # Print a message.
         info `echo "$cmd" | sed 's/@say //'`
         ;;
     @sleep*)
+        # Delay for a bit before running the next command.
         delay=`echo "$cmd" | sed 's/@sleep //'`
         info "Sleeping for $delay seconds"
         sleep "$delay"
@@ -203,20 +213,33 @@ while :; do
         ;;
     *)
         send_cmd "$cmd"
-        if [ $ssh_exit_code -ne 0 ] ; then
-            warn "Command failed with code $ssh_exit_code: '$cmd'."
+        exit_code=$ssh_exit_code # set by send_cmd
+        if [ $exit_code -ne 0 ] ; then
+            warn "Command failed with code $exit_code: '$cmd'."
             break
         fi
         ;;
     esac
-    shift
 done
 
+# Run post processing commands before deleting the guest.
+if [ $exit_code -ne 0 ] ; then
+    for cmd in "$@"; do
+        case "$cmd" in
+        @onfail*)
+            cmd=`echo "$cmd" | sed "s/@onfail //"`
+            send_cmd "$cmd"
+            ;;
+        *)
+            ;;
+        esac
+    done
+fi
+
 if [ "$opt_nodelete" = "yes" ]; then
-    warn "Skipping delete"
+    warn "Skipping delete of '$vmname'."
 else
     info "Deleting domain '$vmname'."
     virt-delete $vmname
 fi
-exit $ssh_exit_code # propagate the command error
-
+exit $exit_code # propagate the command error
