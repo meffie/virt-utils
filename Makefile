@@ -11,6 +11,7 @@ SCRIPTS = \
 	virt-from \
 	virt-hosts \
 	virt-interfaces \
+	virt-list \
 	virt-pick \
 	virt-pick-vol \
 	virt-query \
