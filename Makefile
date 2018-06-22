@@ -3,7 +3,6 @@ bindir=$(prefix)/bin
 
 SCRIPTS = \
 	create-config-drive \
-	virsh-rename \
 	virt-addr \
 	virt-boot \
 	virt-delete \
@@ -15,6 +14,7 @@ SCRIPTS = \
 	virt-pick \
 	virt-pick-vol \
 	virt-query \
+	virt-rename \
 	virt-run \
 	virt-ssh \
 	virt-vol \
