@@ -1,0 +1,2 @@
+#!/bin/sh
+exec virsh stop $1
