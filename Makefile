@@ -2,9 +2,10 @@ prefix=/usr/local
 bindir=$(prefix)/bin
 
 SCRIPTS = \
+	create-config-drive \
 	virsh-rename \
-	virt-query \
 	virt-addr \
+	virt-boot \
 	virt-delete \
 	virt-disks \
 	virt-from \
@@ -12,11 +13,10 @@ SCRIPTS = \
 	virt-interfaces \
 	virt-pick \
 	virt-pick-vol \
-	virt-boot \
-	virt-vol \
-	virt-ssh \
+	virt-query \
 	virt-run \
-	create-config-drive \
+	virt-ssh \
+	virt-vol \
 	write-mime-multipart
 
 all:
