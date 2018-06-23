@@ -135,7 +135,7 @@ reap_orphans() {
             continue
         fi
         info "Deleting orphan domains '$vm'."
-        virt-delete $vm
+        virt-destroy $vm
     done
 }
 
@@ -241,6 +241,6 @@ if [ "$opt_nodelete" = "yes" ]; then
     warn "Skipping delete of '$vmname'."
 else
     info "Deleting domain '$vmname'."
-    virt-delete $vmname
+    virt-destroy $vmname
 fi
 exit $exit_code # propagate the command error

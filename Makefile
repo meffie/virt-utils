@@ -5,7 +5,7 @@ SCRIPTS = \
 	create-config-drive \
 	virt-addr \
 	virt-boot \
-	virt-delete \
+	virt-destroy \
 	virt-disks \
 	virt-from \
 	virt-hosts \
