@@ -17,8 +17,8 @@ SCRIPTS = \
 	virt-rename \
 	virt-run \
 	virt-ssh \
-    virt-start \
-    virt-stop \
+	virt-start \
+	virt-stop \
 	virt-vol \
 	write-mime-multipart
 
