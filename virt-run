@@ -201,6 +201,8 @@ for cmd in "$@"; do
     @say*)
         info "`echo "$cmd" | sed 's/@say //'`"
         ;;
+    @skip*)
+        ;;
     @sleep*)
         # Delay for a bit before running the next command.
         delay=`echo "$cmd" | sed 's/@sleep //'`
