@@ -51,12 +51,9 @@ virt-run \
     "sudo kernel-ppa install" \
     "@reboot" \
     "uname -a" \
-    "gcc --version" \
-    "mkdir openafs" \
     "@cd openafs" \
-    "git init" \
-    "git fetch ${opt_repo} ${opt_branch}" \
-    "git reset --hard FETCH_HEAD" \
+    "git fetch ${opt_repo}" \
+    "git checkout ${opt_branch}" \
     "git --no-pager log -n1 --stat" \
     "./regen.sh" \
     "./configure --enable-transarc-paths" \
