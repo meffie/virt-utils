@@ -3,7 +3,7 @@
 # Download mainline kernel ppa packages published by the Ubuntu kernel team.
 #
 # usage: kernel-ppa list
-#        kernel-ppa get [<version>]
+#        kernel-ppa get [rc|daily|<version>]
 #        kernel-ppa install
 #
 #
@@ -12,7 +12,7 @@ BASEURL="http://kernel.ubuntu.com/~kernel-ppa/mainline"
 
 usage() {
     echo "usage: kernel-ppa list"
-    echo "       kernel-ppa get [<version>]"
+    echo "       kernel-ppa get [rc|daily|<version>]"
     echo "       sudo kernel-ppa install"
 }
 
@@ -23,12 +23,13 @@ list_versions() {
 }
 
 get_packages() {
-    version="$1"
     arch=`uname -m | sed s/x86_64/amd64/`
 
-    if [ "x$version" = "x" ]; then
-        version=`list_versions | head -1`
-    fi
+    case "$1" in
+    rc|"") version=`list_versions | head -1` ;;
+    daily) version=`date "+daily/%Y-%m-%d"` ;;
+    *)     version="$1" ;;
+    esac
 
     wget \
     --no-verbose \
