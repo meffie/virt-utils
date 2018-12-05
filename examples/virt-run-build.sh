@@ -1,11 +1,11 @@
 #!/bin/bash
 
 usage() {
-    cat >&2 <<__EOF__
+    cat <<__EOF__
 Build and smoke test OpenAFS on a Linux RC or daily using packages
 provided by the Ubuntu Kernel Team.
 
-usage: virt-run-build [--user <user>] [--ref <ref>] [--linux <linux>] [--smoke-test]
+usage: virt-run-build [--user <user>] [--branch <ref>] [--linux <linux>] [--smoke-test]
 
 where:
 
@@ -22,7 +22,6 @@ __EOF__
 }
 
 opt_user="$USER"
-opt_repo="https://gerrit.openafs.org/openafs.git"
 opt_branch="master"
 opt_ppa="rc"
 opt_nodelete=""
@@ -30,11 +29,10 @@ opt_dotest="@skip "
 while [ "x$1" != "x" ]; do
     case "$1" in
     --user) opt_user="$2"; shift 2;;
-    --repo) opt_repo="$2"; shift 2;;
     --branch|--ref) opt_branch="$2"; shift 2;;
     --linux) opt_ppa="$2"; shift 2;;
     --nodelete) opt_nodelete="--nodelete"; shift;;
-    --test) opt_dotest=""; shift;;
+    --smoke-test) opt_dotest=""; shift;;
     -h|--help) usage; exit 0;;
     *)  usage; exit 1;;
     esac
@@ -52,8 +50,8 @@ virt-run \
     "@reboot" \
     "uname -a" \
     "@cd openafs" \
-    "git fetch ${opt_repo}" \
-    "git checkout ${opt_branch}" \
+    "git fetch origin" \
+    "git checkout origin/${opt_branch}" \
     "git --no-pager log -n1 --stat" \
     "./regen.sh" \
     "./configure --enable-transarc-paths" \
