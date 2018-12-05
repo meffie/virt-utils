@@ -1,44 +1,50 @@
 #!/bin/bash
 
-BASE_NAME="ubuntu1804"
-BASE_PREFIX="zz-"
-REMOTE_USER="$USER"
-
-opt_ref="master"
-opt_ppa=""
-
 usage() {
     cat >&2 <<__EOF__
-usage: virt-run-build.sh [--ref <ref>] [--linux <linux>]
+Build and smoke test OpenAFS on a Linux rc or daily build using packages
+provided by the Ubuntu Kernel Team.
+
+usage: build-openafs.sh [--user <user>]  [--ref <ref>] [--linux <linux>] [--smoke-test]
 
 where:
-  <ref> is the git branch or gerrit ref (default: ${opt_ref})
+
+  <ref> is the git branch or gerrit ref (default: master)
   <linux> is the linux ppa version (default: current rc)
 
 examples:
 
-   virt-run-build.sh  # master, most recent rc
-   virt-run-build.sh --ref openafs-stable-1_8_x --linux daily/current
-   virt-run-build.sh --ref refs/heads/34/1234/1 --linux v4.17-rc4
+   ./build-openafs.sh  # master, most recent rc
+   ./build-openafs.sh --ref openafs-stable-1_8_x --linux daily
+   ./build-openafs.sh --ref refs/heads/34/1234/1 --linux v4.17-rc4
 
 __EOF__
 }
 
+opt_user="$USER"
+opt_ref="master"
+opt_ppa=""
+opt_nodelete=""
+opt_smoke_test="@skip "
 while [ "x$1" != "x" ]; do
     case "$1" in
+    --user) opt_user="$2"; shift 2;;
     --ref)  opt_ref="$2"; shift 2;;
     --linux) opt_ppa="$2"; shift 2;;
+    --nodelete) opt_nodelete="--nodelete"; shift;;
+    --smoke-test) opt_smoke_test=""; shift;;
     -h|--help) usage; exit 0;;
     *)  usage; exit 1;;
     esac
 done
 
 /usr/local/bin/virt-run \
-    --base "$BASE_NAME" \
-    --base-prefix "$BASE_PREFIX" \
+    --base "ubuntu1804" \
+    --base-prefix "zz-" \
     --clone-prefix "tmp-" \
-    --user "$REMOTE_USER" \
+    --user "$opt_user" \
     --wait "30" \
+    ${opt_nodelete} \
     "kernel-ppa get ${opt_ppa}" \
     "sudo kernel-ppa install" \
     "@reboot" \
@@ -51,6 +57,8 @@ done
     "git reset --hard FETCH_HEAD" \
     "git --no-pager log -n1 --stat" \
     "./regen.sh" \
-    "./configure" \
-    "make" \
-    "@onfail cat config.log"
+    "./configure --enable-transarc-paths" \
+    "make dest" \
+    "${opt_smoke_test}sudo afsutil check --fix-hosts"  \
+    "${opt_smoke_test}afsrobot setup" \
+    "${opt_smoke_test}afsrobot run --suite client"
