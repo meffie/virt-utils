@@ -22,12 +22,18 @@ list_versions() {
         sed 's@/$@@'
 }
 
+list_dailies() {
+    wget -q -O - "$BASEURL/daily/" |
+       perl -lane 'print $1 if /href="(\d{4}-\d{2}-\d{2})\/"/' |
+       sort -r
+}
+
 get_packages() {
     arch=`uname -m | sed s/x86_64/amd64/`
 
     case "$1" in
-    rc|"") version=`list_versions | head -1` ;;
-    daily) version=`date "+daily/%Y-%m-%d"` ;;
+    rc|"") version=$(list_versions | head -1) ;;
+    daily) version="daily/$(list_dailies | head -1)" ;;
     *)     version="$1" ;;
     esac
 
@@ -48,7 +54,7 @@ install_packages() {
     if [ "$files" = "linux-*.deb" ]; then
         echo "Run 'kernel-ppa get' first."
     else
-	echo "Installing $files"
+        echo "Installing $files"
         DEBIAN_FRONTEND=noninteractive dpkg --install $files
     fi
 }
