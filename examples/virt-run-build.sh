@@ -22,17 +22,19 @@ __EOF__
 }
 
 opt_user="$USER"
+opt_repo="https://gerrit.openafs.org/openafs.git"
 opt_branch="master"
 opt_ppa="rc"
 opt_nodelete=""
-opt_dotest="@skip "
+opt_smoke_test="@skip "
 while [ "x$1" != "x" ]; do
     case "$1" in
     --user) opt_user="$2"; shift 2;;
+    --repo) opt_repo="$2"; shift 2;;
     --branch|--ref) opt_branch="$2"; shift 2;;
     --linux) opt_ppa="$2"; shift 2;;
     --nodelete) opt_nodelete="--nodelete"; shift;;
-    --smoke-test) opt_dotest=""; shift;;
+    --smoke-test) opt_smoke_test=""; shift;;
     -h|--help) usage; exit 0;;
     *)  usage; exit 1;;
     esac
@@ -50,12 +52,12 @@ virt-run \
     "@reboot" \
     "uname -a" \
     "@cd openafs" \
-    "git fetch origin" \
-    "git checkout origin/${opt_branch}" \
+    "git fetch --quiet ${opt_repo} ${opt_branch}" \
+    "git reset --hard FETCH_HEAD" \
     "git --no-pager log -n1 --stat" \
     "./regen.sh" \
     "./configure --enable-transarc-paths" \
     "make dest" \
-    "${opt_dotest}sudo afsutil check --fix-hosts"  \
-    "${opt_dotest}afsrobot setup" \
-    "${opt_dotest}afsrobot run --suite client"
+    "${opt_smoke_test}sudo afsutil check --fix-hosts" \
+    "${opt_smoke_test}afsrobot setup" \
+    "${opt_smoke_test}afsrobot run --suite client"
