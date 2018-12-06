@@ -172,8 +172,14 @@ reap_orphans
 
 vmname="${vmcloneprefix}${vmbase}-$$"
 info "Cloning '${vmbaseprefix}${vmbase}' to '$vmname'."
-virt-clone --auto-clone --original ${vmbaseprefix}${vmbase} --name ${vmname} ||
+(
+    flock -x -w 60 200
+    virt-clone --auto-clone --original ${vmbaseprefix}${vmbase} --name ${vmname}
+) 200>$HOME/.virt-clone.lock
+if [ $? -ne 0 ]; then
     die "Failed to clone '${vmbaseprefix}${vmbase}' to '${vmname}'."
+fi
+
 virsh start ${vmname} ||
     die "Failed to start '${vmname}'."
 
