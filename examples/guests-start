@@ -1,0 +1,5 @@
+#!/bin/bash
+
+for i in afs0{1..6}; do
+    virt-start $i
+done
