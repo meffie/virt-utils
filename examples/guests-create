@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+set -x
+
+function make_guest() {
+    local host=$1
+    local mac=$2
+
+    if virt-list | grep $host; then :; else
+       virt-clone --auto-clone -o zz-cen75 -n $host --mac $mac
+    fi
+    if virt-list | grep $host | grep running; then :; else
+        sudo virt-sysprep \
+          -d $host \
+          --quiet \
+          --hostname $host.example.com \
+          --operations defaults,-ssh-userdir
+        virt-start $host
+    fi
+}
+
+make_guest afs01 52:54:00:78:22:1d
+make_guest afs02 52:54:00:48:45:75
+make_guest afs03 52:54:00:52:56:48
+make_guest afs04 52:54:00:b6:aa:5a
+make_guest afs05 52:54:00:c1:4e:64
+make_guest afs06 52:54:00:be:45:cf

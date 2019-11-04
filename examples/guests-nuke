@@ -1,0 +1,6 @@
+#!/bin/bash
+set -x
+for host in afs0{1..6}; do
+   virt-stop $host || true
+   virt-delete $host || true
+done
