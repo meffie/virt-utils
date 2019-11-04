@@ -14,14 +14,15 @@ where:
 
 examples:
 
-   virt-run-build  # master, most recent rc
-   virt-run-build --branch openafs-stable-1_8_x --linux daily
-   virt-run-build --branch refs/heads/34/1234/1 --linux v4.17-rc4
+   virt-run-build.sh  # master, most recent rc
+   virt-run-build.sh --branch openafs-stable-1_8_x --linux daily
+   virt-run-build.sh --branch refs/heads/34/1234/1 --linux v4.17-rc4
 
 __EOF__
 }
 
 opt_user="$USER"
+opt_base="ubuntu1804"
 opt_repo="https://gerrit.openafs.org/openafs.git"
 opt_branch="master"
 opt_ppa="rc"
@@ -30,6 +31,7 @@ opt_smoke_test="@skip "
 while [ "x$1" != "x" ]; do
     case "$1" in
     --user) opt_user="$2"; shift 2;;
+    --base) opt_base="$2"; shift 2;;
     --repo) opt_repo="$2"; shift 2;;
     --branch|--ref) opt_branch="$2"; shift 2;;
     --linux) opt_ppa="$2"; shift 2;;
@@ -41,7 +43,7 @@ while [ "x$1" != "x" ]; do
 done
 
 virt-run \
-    --base "ubuntu1804" \
+    --base "$opt_base" \
     --base-prefix "zz-" \
     --clone-prefix "tmp-" \
     --user "$opt_user" \
