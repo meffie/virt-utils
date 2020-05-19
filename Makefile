@@ -10,6 +10,7 @@ SCRIPTS = \
 	virt-from \
 	virt-hosts \
 	virt-interfaces \
+	virt-ip \
 	virt-list \
 	virt-pick \
 	virt-pick-vol \

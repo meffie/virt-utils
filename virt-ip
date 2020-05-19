@@ -91,19 +91,36 @@ def get_ip_from_arp_cache(domain):
                 addresses.append(f[0])
     return addresses
 
+def get_ip(domain):
+    try:
+        return get_ip_from_agent(domain)
+    except VirtIpError as e:
+        raise e
+    except:
+        pass
+    try:
+        return get_ip_from_dhcp_leases(domain)
+    except VirtIpError as e:
+        raise e
+    except:
+        pass
+    return get_ip_from_arp_cache(domain)
+
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument('--method', choices=('agent','dhcp','arp'), default='agent',
+    p.add_argument('-m', '--mode', choices=('probe', 'agent','dhcp','arp'),
+                   default='probe',
                    help='Lookup method (default: agent)')
-    p.add_argument('--retries', default=0, type=int,
+    p.add_argument('-r', '--retries', default=0, type=int,
                    help='Number of retries (default: 0)')
-    p.add_argument('--delay', default='10', type=int,
+    p.add_argument('-d', '--delay', default='10', type=int,
                    help='How many seconds to wait between retries (default: 10)')
     p.add_argument('domain')
     return p.parse_args()
 
 def main():
-    method = {
+    mode = {
+        'probe': get_ip,
         'agent': get_ip_from_agent,
         'dhcp': get_ip_from_dhcp_leases,
         'arp': get_ip_from_arp_cache,
@@ -112,7 +129,7 @@ def main():
     retries = args.retries
     while True:
         try:
-            addrs = method[args.method](args.domain)
+            addrs = mode[args.mode](args.domain)
             for addr in addrs:
                 print(addr)
                 return 0

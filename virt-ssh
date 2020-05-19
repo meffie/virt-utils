@@ -21,7 +21,7 @@ if [ -z $vmname ]; then
     exit 1
 fi
 
-vmaddr=`virt-addr $vmname`
+vmaddr=`virt-ip $vmname`
 if [ -z $vmaddr ]; then
     echo "Failed to get address of '$vmname'."
     exit 1
