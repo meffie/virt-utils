@@ -96,7 +96,7 @@ wait_until_booted() {
         die "Domain '$vmname' failed to start."
     fi
     for i in {1..20}; do
-        vmaddr=`virt-addr $vmname`
+        vmaddr=`virt-ip -m agent $vmname`
         if [ ! -z $vmaddr ]; then
             break
         fi
